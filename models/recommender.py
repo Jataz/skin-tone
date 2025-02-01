@@ -1,58 +1,117 @@
 import pymysql
 
-# Create a global connection object to keep it open for multiple analyses
+# Global database connection
 connection = None
 
 def init_db_connection():
-    """Initialize the database connection and keep it open."""
+    """Initialize and keep database connection open."""
     global connection
     if not connection:
         try:
             connection = pymysql.connect(
                 host="localhost",
                 user="root",
-                password="",  # Default XAMPP password is empty
+                password="",  # Default XAMPP password
                 database="cosmetics_db",
-                port=3306  # Default MySQL port
+                port=3306
             )
             print("DEBUG: Database connection established successfully.")
         except pymysql.MySQLError as e:
             print(f"DEBUG: Error connecting to the database: {e}")
             connection = None
 
-def recommend_products(skin_tone, texture, conditiontype):
-    """Recommend products based on skin tone, texture, and condition type."""
+def recommend_products(skin_tone, skin_type, skin_concern, skin_texture):  # FIXED ORDER
+    """Recommend products based on multiple skin attributes."""
     try:
-        # Ensure the database connection is initialized
         if connection is None:
             init_db_connection()
-        
-        # Create a cursor for executing queries
+
         cursor = connection.cursor()
 
-        # Debug: Print input parameters
-        print(f"DEBUG: Querying products for skin_tone='{skin_tone}', texture='{texture}', conditiontype='{conditiontype}'")
+        # Debugging: Print received parameters
+        print(f"DEBUG: Searching for products with - Tone: {skin_tone}, Type: {skin_type}, Concern: {skin_concern}, Texture: {skin_texture}")
 
-        # Query products
+        # Updated SQL query to allow partial matches with correct order
         query = """
-        SELECT name, category, link FROM products
-        WHERE LOWER(skin_tone) = LOWER(%s) AND LOWER(texture) = LOWER(%s) AND LOWER(conditiontype) = LOWER(%s);
+        SELECT name, category,image_path, link FROM products
+        WHERE LOWER(skin_tone) LIKE LOWER(%s)
+        AND LOWER(skin_type) LIKE LOWER(%s)
+        AND LOWER(skin_concern) LIKE LOWER(%s)
+        AND LOWER(skin_texture) LIKE LOWER(%s);
         """
-        cursor.execute(query, (skin_tone, texture, conditiontype))
+
+        # Debug: Print SQL query correctly formatted
+        sql_query = query % (f"'{skin_tone}'", f"'{skin_type}'", f"'{skin_concern}'", f"'{skin_texture}'")
+        print(f"DEBUG: Running SQL Query -> {sql_query}")
+
+        cursor.execute(query, (f"%{skin_tone}%", f"%{skin_type}%", f"%{skin_concern}%", f"%{skin_texture}%"))
         products = cursor.fetchall()
 
-        # Debug: Print query results
+        # Debugging: Print SQL results
         print(f"DEBUG: Query results: {products}")
 
-        cursor.close()  # Close the cursor but keep the connection open
+        cursor.close()
         return products
 
     except pymysql.MySQLError as e:
         print(f"DEBUG: Database error: {e}")
         return []
 
+def fetch_product_details(product_name):
+    """Fetch details of a specific product by name."""
+    try:
+        if connection is None:
+            init_db_connection()
+
+        cursor = connection.cursor()
+
+        # SQL query to fetch product details
+        query = """
+        SELECT name, category, image_path, link 
+        FROM products 
+        WHERE name = %s
+        LIMIT 1;
+        """
+        cursor.execute(query, (product_name,))
+        product = cursor.fetchone()
+
+        cursor.close()
+        return product
+
+    except pymysql.MySQLError as e:
+        print(f"DEBUG: Database error: {e}")
+        return None
+   
+def fetch_gallery_products(limit=20):
+    """Fetch product details including images for the gallery."""
+    try:
+        if connection is None:
+            init_db_connection()
+
+        cursor = connection.cursor()
+
+        # SQL query to fetch product name, category, image path, and link
+        query = """
+        SELECT name, category, image_path, link FROM products 
+        WHERE image_path IS NOT NULL 
+        LIMIT %s;
+        """
+        cursor.execute(query, (limit,))
+        products = cursor.fetchall()
+
+        # Debugging: Print fetched product count
+        print(f"DEBUG: Gallery Products Fetched: {len(products)} items")
+
+        cursor.close()
+        return products
+
+    except pymysql.MySQLError as e:
+        print(f"DEBUG: Database error: {e}")
+        return []
+
+
 def close_db_connection():
-    """Close the database connection when the application exits."""
+    """Close database connection on app exit."""
     global connection
     if connection:
         connection.close()

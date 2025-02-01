@@ -1,40 +1,60 @@
 import streamlit as st
 from streamlit_option_menu import option_menu
 import os
+import cv2
+import numpy as np
+import urllib
 from models.skin_analysis import analyze_skin
-from models.recommender import recommend_products, init_db_connection, close_db_connection
+from models.recommender import recommend_products, init_db_connection, close_db_connection,fetch_gallery_products
 
 # Configure Streamlit page
-st.set_page_config(page_title="Cosmetics Recommendation", layout="wide")
+st.set_page_config(page_title="Facial Skin Analysis & Cosmetics Recommendation", layout="wide")
 init_db_connection()
+
 # Configure upload folder
 UPLOAD_FOLDER = "static/uploads/"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Apply custom CSS for styling
-st.markdown(
-    """
+st.markdown("""
     <style>
-    .css-1aumxhk {
-        background-color: #4CAF50 !important;
-    }
-    .css-18e3th9 {
-        padding-top: 0px !important;
-    }
-    .css-1v3fvcr {
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-    }
-    img {
-        max-width: 300px; /* Limit image width */
-        border-radius: 10px;
-    }
+    .css-1aumxhk { background-color: #4CAF50 !important; }
+    .css-18e3th9 { padding-top: 0px !important; }
+    .css-1v3fvcr { padding-left: 1rem !important; padding-right: 1rem !important; }
+    img { max-width: 300px; border-radius: 10px; }
     </style>
-    """,
-    unsafe_allow_html=True,
-)
+    """, unsafe_allow_html=True)
 
-# Sidebar Navbar
+# Function to detect face and extract skin area
+def detect_face(image_path):
+    """Detects the face and extracts skin area from the image."""
+    try:
+        image = cv2.imread(image_path)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # Load OpenCV face detector
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
+
+        if len(faces) == 0:
+            st.warning("No face detected. Please upload a clear image of your face.")
+            return None
+
+        # Extract the largest detected face
+        x, y, w, h = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)[0]
+        face_region = image[y:y+h, x:x+w]
+
+        # Save cropped face image
+        cropped_face_path = os.path.splitext(image_path)[0] + "_face.jpg"
+        cv2.imwrite(cropped_face_path, face_region)
+
+        return cropped_face_path
+
+    except Exception as e:
+        st.error(f"Error processing image: {e}")
+        return None
+
+# Sidebar Navigation
 with st.sidebar:
     selected = option_menu(
         menu_title="Main Menu",
@@ -48,103 +68,138 @@ with st.sidebar:
 if selected == "About":
     st.title("About the System")
     st.markdown("""
-        This AI-based Cosmetics Recommendation System helps you find the perfect cosmetics for your skin.
-        Upload your image, and the system analyzes your **skin tone**, **texture**, and **condition type**.
-        Then, it recommends products tailored specifically for you using advanced machine learning models.
+        This AI-powered **Facial Skin Analysis System** helps you find the best cosmetics based on your skin.
+        - Upload an image of your **face**.
+        - The system **detects your skin tone, texture, type, and concerns**.
+        - Personalized product recommendations are provided.
     """)
 
 # Analyze Page
 elif selected == "Analyze":
-    st.title("Analyze Your Skin")
-    st.header("Upload Your Image Below")
+    st.title("Facial Skin Analysis")
+    st.header("Upload a **clear image of your face**")
 
     # Upload Image
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
 
     if uploaded_file is not None:
-        # Save uploaded file
         file_path = os.path.join(UPLOAD_FOLDER, uploaded_file.name)
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
-        # Display uploaded image
-        st.image(file_path, caption="Uploaded Image", use_container_width=False)
+        cropped_face_path = detect_face(file_path)
 
-        # Automatically analyze image
-        st.subheader("Analysis Results")
-        try:
-            # Analyze Skin
-            st.write("DEBUG: Starting image analysis...")
-            skin_tone, texture, conditiontype = analyze_skin(file_path)
-            st.write("DEBUG: Analysis completed.")
+        if cropped_face_path:
+            # 🔹 Styled Card for Images
+            st.markdown(
+                """
+                <style>
+                .image-card {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 15px;
+                    background: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 10px;
+                    box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+                    width: 100%;
+                    text-align: center;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
 
-            # Display Results
-            st.write(f"**Skin Tone:** {skin_tone}")
-            st.write(f"**Texture:** {texture}")
-            st.write(f"**Condition Type:** {conditiontype}")
+            # 🔹 Show Images in a Card Layout
+            col1, col2 = st.columns(2)
+            with col1:
+                st.image(file_path, caption="Uploaded Image", use_container_width=True)
+            with col2:
+                st.image(cropped_face_path, caption="Detected Face", use_container_width=True)
 
-            # Recommend Products
-            st.subheader("Recommended Products")
-            products = recommend_products(skin_tone, texture, conditiontype)
-            if products:
-                for product in products:
-                    st.write(f"- **{product[0]}** ({product[1]}): [View Product]({product[2]})")
-            else:
-                st.write("No matching products found.")
+            # 🔹 Perform Skin Analysis
+            st.subheader("Analysis Results")
+            try:
+                st.write("Processing fresh skin analysis...")
+                skin_tone, skin_type, skin_concern, skin_texture = analyze_skin(cropped_face_path, force_refresh=True)
+                st.write("Analysis completed.")
 
-        except Exception as e:
-            st.error(f"An error occurred during analysis: {e}")
+                # Display Results
+                st.write(f"**Skin Tone:** {skin_tone}")
+                st.write(f"**Skin Type:** {skin_type}")
+                st.write(f"**Skin Concern:** {skin_concern}")
+                st.write(f"**Skin Texture:** {skin_texture}")
 
-        # Clean up file safely
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            st.write("DEBUG: Uploaded file deleted.")
+                # Recommend Products
+                st.subheader("Recommended Products")
+                products = recommend_products(skin_tone, skin_type, skin_concern, skin_texture)
 
-        # Allow multiple analyses without crashing
-        st.success("Analysis complete! Upload another image to analyze again.")
+                if products:
+                    for product in products:
+                        product_name, category, image_path, product_link = product
+
+                        if not os.path.exists(image_path) or not image_path:
+                            image_path = "static/images/default_product.png"
+
+                        st.image(image_path, caption=f"**{product_name}** ({category})", use_container_width=True)
+                else:
+                    st.write("No matching products found.")
+
+            except Exception as e:
+                st.error(f"An error occurred during analysis: {e}")
+
+            # 🔹 Cleanup Files
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            if os.path.exists(cropped_face_path):
+                os.remove(cropped_face_path)
+
+            st.success("Analysis complete! Upload another image to analyze again.")
+
 
 # FAQs Page
 elif selected == "FAQs":
     st.title("Frequently Asked Questions")
     st.markdown("""
-        **1. How does the system work?**  
-        Upload your image, and the system analyzes your skin tone, texture, and condition type using AI models.  
-        Based on the analysis, it recommends products from our curated database.
+        **1. What type of image should I upload?**  
+        - A **clear front-facing photo** of your face with **good lighting**.
+        - Avoid makeup, filters, or obstructions (glasses, masks).
 
-        **2. What types of products are recommended?**  
-        Products like foundations, lipsticks, blushes, and concealers tailored to your skin characteristics.
+        **2. How does the system analyze my skin?**  
+        - It detects your **skin tone, type, texture, and concerns**.
+        - Uses a **pretrained AI model** to provide recommendations.
 
-        **3. Is my data safe?**  
-        Yes! Your images are not stored on any server after analysis.
+        **3. Are my photos stored?**  
+        - **No.** Your images are **not stored** after analysis.
     """)
 
 # Contact Us Page
 elif selected == "Contact Us":
     st.title("Contact Us")
     st.markdown("""
-        **Email**: support@cosmetics-recommendation.com  
-        **Phone**: +123 456 7890  
-        **Address**: 123 AI Lane, Skin City, Beautyland  
+        📧 **Email**: support@cosmetics-recommendation.com  
+        📞 **Phone**: +123 456 7890  
+        🏢 **Address**: 123 AI Lane, Skin City, Beautyland  
     """)
-    st.text_input("Your Name", key="name")
-    st.text_area("Your Message", key="message")
-    if st.button("Submit"):
-        st.success("Your message has been sent! We'll get back to you shortly.")
 
 # Product Gallery Page
 elif selected == "Product Gallery":
     st.title("Product Gallery")
-    st.markdown("""
-        Browse through some of the most popular products curated by our system.
-    """)
-    # Sample product images (replace with real ones)
-    gallery = [
-        {"name": "Foundation A", "image": "static/uploads/foundation_a.png", "link": "http://example.com/foundation-a"},
-        {"name": "Lipstick X", "image": "static/uploads/lipstick_x.png", "link": "http://example.com/lipstick-x"},
-        {"name": "Blush Y", "image": "static/uploads/blush_y.png", "link": "http://example.com/blush-y"},
-    ]
-    for product in gallery:
-        st.image(product["image"], caption=f"{product['name']}: [View Product]({product['link']})", use_container_width=False)
+    st.markdown("Browse through our curated skincare products.")
+
+    products = fetch_gallery_products()
+
+    if products:
+        for product in products:
+            product_name, category, image_path, product_link = product
+
+            if not os.path.exists(image_path) or not image_path:
+                image_path = "static/images/default_product.png"
+
+            st.image(image_path, caption=f"**{product_name}** ({category})", use_container_width=True)  # ✅ FIXED
+    else:
+        st.warning("No products found in the database.")
 
 # Close the database connection on app exit
 import atexit
