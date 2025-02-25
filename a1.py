@@ -213,6 +213,15 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
+    # Override sidebar background color to white
+    st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            background-color: white !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     selected = option_menu(
         menu_title=None,
         options=["Home", "Analyze", "Products", "Research", "About"],
@@ -343,12 +352,21 @@ elif selected == "Analyze":
                     <h3 style="color: #1e88e5; margin-top: 0;">Image Processing</h3>
                 </div>
             """, unsafe_allow_html=True)
-            
             col1, col2 = st.columns(2)
             with col1:
-                st.image(file_path, caption="Uploaded Image", use_container_width=True)
+                st.markdown("""
+                    <div class="card">
+                        <h4 style="color: #1e88e5; margin-top: 0;">Uploaded Image</h4>
+                """, unsafe_allow_html=True)
+                st.image(file_path, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
             with col2:
-                st.image(cropped_face_path, caption="Detected Face", use_container_width=True)
+                st.markdown("""
+                    <div class="card">
+                        <h4 style="color: #1e88e5; margin-top: 0;">Detected Face</h4>
+                """, unsafe_allow_html=True)
+                st.image(cropped_face_path, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
             # Perform Skin Tone Analysis
             st.markdown("""

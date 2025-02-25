@@ -28,6 +28,22 @@ st.markdown("""
         color: #333333;
     }
     
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] {
+        background-color: #ffffff !important;
+        border-right: 1px solid #e0e0e0;
+        box-shadow: 2px 0px 5px rgba(0,0,0,0.05);
+    }
+    
+    section[data-testid="stSidebar"] .stMarkdown {
+        background-color: #ffffff;
+    }
+    
+    section[data-testid="stSidebar"] > div {
+        background-color: #ffffff !important;
+    }
+    
+    /* Rest of your styles remain the same */
     h1, h2, h3 {
         color: #2c3e50;
         font-family: 'Inter', sans-serif;
@@ -44,13 +60,6 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
 
-    /* Sidebar styling */
-    .css-1aumxhk, [data-testid="stSidebar"] {
-        background-color: #ffffff !important;
-        border-right: 1px solid #e0e0e0;
-        box-shadow: 2px 0px 5px rgba(0,0,0,0.05);
-    }
-    
     .css-18e3th9 {
         padding-top: 0px !important;
     }
