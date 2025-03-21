@@ -33,7 +33,7 @@ def recommend_products(skin_tone, skin_type, skin_concern, skin_texture):  # FIX
 
         # Updated SQL query to allow partial matches with correct order
         query = """
-        SELECT name, category,image_path, link FROM products
+        SELECT name, category, recommendation FROM products
         WHERE LOWER(skin_tone) LIKE LOWER(%s)
         AND LOWER(skin_type) LIKE LOWER(%s)
         AND LOWER(skin_concern) LIKE LOWER(%s)

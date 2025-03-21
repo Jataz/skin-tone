@@ -557,19 +557,21 @@ elif selected == "Analyze":
                 if products:
                     cols = st.columns(3)
                     for i, product in enumerate(products):
-                        product_name, category, recommendation = product
+                        product_name, category, image_path, product_link = product
+
+                        if not os.path.exists(image_path) or not image_path:
+                            image_path = "static/images/default_product.png"
 
                         with cols[i % 3]:
                             st.markdown(f"""
                                 <div class="feature-card animated" style="animation-delay: {0.2 + i * 0.1}s;">
                                     <div style="text-align: center;">
+                                        <div class="image-container" style="margin-bottom: 15px;">
+                                            <img src="{image_path}" style="width: 100%; height: 200px; object-fit: cover;">
+                                        </div>
                                         <h4 style="margin: 10px 0 5px 0;">{product_name}</h4>
                                         <span class="badge">{category}</span>
-                                        <h4 style="color: #4e95ed; margin: 10px 0 5px 0">Recommended Products</h4>
-                                        <ul style="text-align: left; margin: 15px 0;">
-                                            {' '.join([f'<li>{item.strip()}</li>' for item in recommendation.split('.') if item.strip()])}
-                                        </ul>
-                                        <p style="color: #4e95ed; margin-top: 10px;">Perfect for your {skin_type.lower()} skin</p>
+                                        <p style="margin-top: 15px;">Perfect for your {skin_type.lower()} skin</p>
                                     </div>
                                 </div>
                             """, unsafe_allow_html=True)
