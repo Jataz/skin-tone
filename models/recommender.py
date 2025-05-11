@@ -20,7 +20,7 @@ def init_db_connection():
             print(f"DEBUG: Error connecting to the database: {e}")
             connection = None
 
-def recommend_products(skin_tone, skin_type, skin_concern, skin_texture):  # FIXED ORDER
+def recommend_products(skin_tone, skin_type, skin_concern, skin_texture, category=None, undertone=None):  # Added undertone parameter
     """Recommend products based on multiple skin attributes."""
     try:
         if connection is None:
@@ -29,22 +29,32 @@ def recommend_products(skin_tone, skin_type, skin_concern, skin_texture):  # FIX
         cursor = connection.cursor()
 
         # Debugging: Print received parameters
-        print(f"DEBUG: Searching for products with - Tone: {skin_tone}, Type: {skin_type}, Concern: {skin_concern}, Texture: {skin_texture}")
+        print(f"DEBUG: Searching for products with - Tone: {skin_tone}, Type: {skin_type}, Concern: {skin_concern}, Texture: {skin_texture}, Category: {category}, Undertone: {undertone}")
 
-        # Updated SQL query to allow partial matches with correct order
+        # Base query
         query = """
-        SELECT name, category, recommendation FROM products
+        SELECT name, category, recommendation, makeup_recommendation, subcategory FROM products
         WHERE LOWER(skin_tone) LIKE LOWER(%s)
         AND LOWER(skin_type) LIKE LOWER(%s)
         AND LOWER(skin_concern) LIKE LOWER(%s)
-        AND LOWER(skin_texture) LIKE LOWER(%s);
+        AND LOWER(skin_texture) LIKE LOWER(%s)
         """
-
+        
+        # Add category filter if provided
+        params = [f"%{skin_tone}%", f"%{skin_type}%", f"%{skin_concern}%", f"%{skin_texture}%"]
+        if category:
+            query += "AND LOWER(category) = LOWER(%s) "
+            params.append(category)
+            
+        # Add undertone filter if provided
+        if undertone:
+            query += "AND LOWER(undertone) LIKE LOWER(%s) "
+            params.append(f"%{undertone}%")
+            
         # Debug: Print SQL query correctly formatted
-        sql_query = query % (f"'{skin_tone}'", f"'{skin_type}'", f"'{skin_concern}'", f"'{skin_texture}'")
-        print(f"DEBUG: Running SQL Query -> {sql_query}")
+        print(f"DEBUG: Running SQL Query -> {query}")
 
-        cursor.execute(query, (f"%{skin_tone}%", f"%{skin_type}%", f"%{skin_concern}%", f"%{skin_texture}%"))
+        cursor.execute(query, params)
         products = cursor.fetchall()
 
         # Debugging: Print SQL results
@@ -67,7 +77,8 @@ def fetch_product_details(product_name):
 
         # SQL query to fetch product details
         query = """
-        SELECT name, category, image_path, link 
+        SELECT name, category, subcategory, image_path, link, recommendation, makeup_recommendation,
+               skin_tone, skin_type, skin_concern, skin_texture, undertone, shade, finish
         FROM products 
         WHERE name = %s
         LIMIT 1;
@@ -92,7 +103,7 @@ def fetch_gallery_products(limit=20):
 
         # SQL query to fetch product name, category, image path, and link
         query = """
-        SELECT name, category, image_path, link FROM products 
+        SELECT name, category, subcategory, image_path, link FROM products 
         WHERE image_path IS NOT NULL 
         LIMIT %s;
         """

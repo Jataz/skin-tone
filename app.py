@@ -497,7 +497,14 @@ elif selected == "Analyze":
 
             try:
                 with st.spinner("Analyzing your skin..."):
-                    skin_tone, skin_type, skin_concern, skin_texture = analyze_skin(cropped_face_path, force_refresh=True)
+                    # Update to handle the new undertone parameter
+                    try:
+                        skin_tone, skin_type, skin_concern, skin_texture, skin_undertone = analyze_skin(cropped_face_path, force_refresh=True)
+                    except ValueError as e:
+                        # Fallback for backward compatibility if the model doesn't return undertone yet
+                        skin_tone, skin_type, skin_concern, skin_texture = analyze_skin(cropped_face_path, force_refresh=True)
+                        skin_undertone = "Neutral"  # Default value
+                    
                     st.success("Analysis completed!")
 
                 # Display Results
@@ -523,9 +530,13 @@ elif selected == "Analyze":
                                     <td style="padding: 12px 0; color: #2c3e50; font-weight: 600;">Skin Texture:</td>
                                     <td style="padding: 12px 0; color: #555555;"><span class="badge">{}</span></td>
                                 </tr>
+                                <tr>
+                                    <td style="padding: 12px 0; color: #2c3e50; font-weight: 600;">Skin Undertone:</td>
+                                    <td style="padding: 12px 0; color: #555555;"><span class="badge">{}</span></td>
+                                </tr>
                             </table>
                         </div>
-                    """.format(skin_tone, skin_type, skin_concern, skin_texture), unsafe_allow_html=True)
+                    """.format(skin_tone, skin_type, skin_concern, skin_texture, skin_undertone), unsafe_allow_html=True)
                 
                 with col2:
                     st.markdown("""
@@ -533,8 +544,8 @@ elif selected == "Analyze":
                             <h4 style="color: #4e95ed; margin-top: 0;">What This Means</h4>
                             <p>
                                 Based on our AI analysis, we've identified your key skin characteristics. 
-                                These factors will help us recommend the most suitable products for your 
-                                specific needs.
+                                These factors will help us recommend the most suitable skincare and makeup products 
+                                for your specific needs.
                             </p>
                             <p>
                                 Your analysis is complete and your personalized product recommendations 
@@ -544,46 +555,162 @@ elif selected == "Analyze":
                         </div>
                     """, unsafe_allow_html=True)
 
-                # Recommend Products
-                st.markdown("""
-                    <div class="card animated">
-                        <h3 style="color: #4e95ed; margin-top: 0;">Recommended Products</h3>
-                        <p>Based on your Skin Tone Analysis, we recommend the following products:</p>
-                    </div>
-                """, unsafe_allow_html=True)
+                # Create tabs for Skincare and Makeup recommendations
+                skincare_tab, makeup_tab = st.tabs(["Skincare Recommendations", "Makeup Recommendations"])
+                
+                with skincare_tab:
+                    # Recommend Skincare Products
+                    st.markdown("""
+                        <div class="card animated">
+                            <h3 style="color: #4e95ed; margin-top: 0;">Recommended Skincare Products</h3>
+                            <p>Based on your Skin Tone Analysis, we recommend the following skincare products:</p>
+                        </div>
+                    """, unsafe_allow_html=True)
 
-                products = recommend_products(skin_tone, skin_type, skin_concern, skin_texture)
-
-                if products:
-                    cols = st.columns(3)
-                    for i, product in enumerate(products):
-                        product_name, category, recommendation = product
-
-                        with cols[i % 3]:
-                            st.markdown(f"""
-                                <div class="feature-card animated" style="animation-delay: {0.2 + i * 0.1}s;">
-                                    <div style="text-align: center;">
-                                        <h4 style="margin: 10px 0 5px 0;">{product_name}</h4>
-                                        <span class="badge">{category}</span>
-                                        <h4 style="color: #4e95ed; margin: 10px 0 5px 0">Recommended Products</h4>
-                                        <ul style="text-align: left; margin: 15px 0;">
-                                            {' '.join([f'<li>{item.strip()}</li>' for item in recommendation.split('.') if item.strip()])}
-                                        </ul>
-                                        <p style="color: #4e95ed; margin-top: 10px;">Perfect for your {skin_type.lower()} skin</p>
+                    skincare_products = recommend_products(skin_tone, skin_type, skin_concern, skin_texture, category="Skincare")
+                    
+                    if skincare_products:
+                        for i in range(0, len(skincare_products), 3):
+                            cols = st.columns(3)
+                            for j in range(3):
+                                if i + j < len(skincare_products):
+                                    product = skincare_products[i + j]
+                                    with cols[j]:
+                                        st.markdown(f"""
+                                            <div class="card" style="height: 100%;">
+                                                <h4 style="color: #4e95ed; font-size: 18px;">{product['name']}</h4>
+                                                <p><strong>Type:</strong> {product['skin_type']}</p>
+                                                <p><strong>Concern:</strong> {product['skin_concern']}</p>
+                                                <p><strong>Recommendation:</strong> {product.get('recommendation', 'Perfect for your skin profile')}</p>
+                                                <a href="{product['link']}" target="_blank">
+                                                    <img src="{product.get('image_path', 'static/images/placeholder.png')}" style="width: 100%; margin-top: 10px;">
+                                                </a>
+                                            </div>
+                                        """, unsafe_allow_html=True)
+                    else:
+                        st.info("No skincare products found matching your skin profile. Please try again with a different image.")
+                
+                with makeup_tab:
+                    # Recommend Makeup Products
+                    st.markdown("""
+                        <div class="card animated">
+                            <h3 style="color: #4e95ed; margin-top: 0;">Recommended Makeup Products</h3>
+                            <p>Based on your Skin Tone Analysis, we recommend the following makeup products that will complement your skin tone and type:</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Get makeup recommendations
+                    makeup_products = recommend_products(skin_tone, skin_type, skin_concern, skin_texture, category="Makeup", undertone=skin_undertone)
+                    
+                    if makeup_products:
+                        # Create sections for different makeup categories
+                        makeup_categories = {
+                            "Foundation": [],
+                            "Concealer": [],
+                            "Blush": [],
+                            "Eyeshadow": [],
+                            "Lipstick": [],
+                            "Other": []
+                        }
+                        
+                        # Categorize products
+                        for product in makeup_products:
+                            subcategory = product.get('subcategory', 'Other')
+                            if subcategory in makeup_categories:
+                                makeup_categories[subcategory].append(product)
+                            else:
+                                makeup_categories["Other"].append(product)
+                        
+                        # Display products by category
+                        for category, products in makeup_categories.items():
+                            if products:
+                                st.markdown(f"""
+                                    <div style="margin-top: 20px;">
+                                        <h4 style="color: #4e95ed;">{category}</h4>
                                     </div>
+                                """, unsafe_allow_html=True)
+                                
+                                for i in range(0, len(products), 3):
+                                    cols = st.columns(3)
+                                    for j in range(3):
+                                        if i + j < len(products):
+                                            product = products[i + j]
+                                            with cols[j]:
+                                                st.markdown(f"""
+                                                    <div class="card" style="height: 100%;">
+                                                        <h4 style="color: #4e95ed; font-size: 18px;">{product['name']}</h4>
+                                                        <p><strong>Shade:</strong> {product.get('shade', 'Best match for your tone')}</p>
+                                                        <p><strong>Finish:</strong> {product.get('finish', 'Natural')}</p>
+                                                        <p><strong>Recommendation:</strong> {product.get('makeup_recommendation', 'Perfect for your skin profile')}</p>
+                                                        <a href="{product['link']}" target="_blank">
+                                                            <img src="{product.get('image_path', 'static/images/placeholder.png')}" style="width: 100%; margin-top: 10px;">
+                                                        </a>
+                                                    </div>
+                                                """, unsafe_allow_html=True)
+                    else:
+                        st.info("No makeup products found matching your skin profile. We're expanding our makeup database to better serve you.")
+                        
+                        # Provide general makeup recommendations based on skin tone and undertone
+                        st.markdown("""
+                            <div class="card animated">
+                                <h4 style="color: #4e95ed; margin-top: 0;">General Makeup Recommendations</h4>
+                                <p>While we build our product database, here are some general makeup tips for your skin profile:</p>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Generate general makeup recommendations based on skin tone and undertone
+                        general_recommendations = []
+                        
+                        # Foundation recommendations
+                        if skin_tone == "Fair":
+                            if skin_undertone == "Cool":
+                                general_recommendations.append("Look for foundations with pink or rosy undertones")
+                            elif skin_undertone == "Warm":
+                                general_recommendations.append("Choose foundations with yellow or golden undertones")
+                            else:
+                                general_recommendations.append("Neutral foundations will work well with your skin tone")
+                        elif skin_tone == "Medium":
+                            if skin_undertone == "Cool":
+                                general_recommendations.append("Foundations with subtle pink or neutral undertones")
+                            elif skin_undertone == "Warm":
+                                general_recommendations.append("Foundations with golden or olive undertones")
+                            else:
+                                general_recommendations.append("Look for foundations labeled as 'neutral' or 'balanced'")
+                        elif skin_tone == "Dark":
+                            if skin_undertone == "Cool":
+                                general_recommendations.append("Foundations with red or blue undertones")
+                            elif skin_undertone == "Warm":
+                                general_recommendations.append("Foundations with golden, caramel or red undertones")
+                            else:
+                                general_recommendations.append("Neutral foundations with balanced undertones")
+                        
+                        # Blush recommendations
+                        if skin_undertone == "Cool":
+                            general_recommendations.append("Blushes in pink, mauve, or berry shades")
+                        elif skin_undertone == "Warm":
+                            general_recommendations.append("Blushes in peach, coral, or terracotta shades")
+                        else:
+                            general_recommendations.append("Universal blush shades like soft pink or peachy-pink")
+                        
+                        # Lipstick recommendations
+                        if skin_undertone == "Cool":
+                            general_recommendations.append("Lipsticks in blue-red, berry, or mauve shades")
+                        elif skin_undertone == "Warm":
+                            general_recommendations.append("Lipsticks in orange-red, coral, or warm brown shades")
+                        else:
+                            general_recommendations.append("Universal lipstick shades like rose pink or soft red")
+                        
+                        # Display recommendations
+                        for rec in general_recommendations:
+                            st.markdown(f"""
+                                <div style="margin-bottom: 10px; padding: 10px; background-color: #f0f6ff; border-radius: 8px;">
+                                    <p style="margin: 0; color: #4e95ed;"><strong>✓</strong> {rec}</p>
                                 </div>
                             """, unsafe_allow_html=True)
-                else:
-                    st.warning("No matching products found.")
 
             except Exception as e:
-                st.error(f"An error occurred during analysis: {e}")
-
-            # Cleanup Files
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            if os.path.exists(cropped_face_path):
-                os.remove(cropped_face_path)
+                st.error(f"Error during analysis: {e}")
+                st.info("Please try uploading a different image with clearer lighting and a more visible face.")
 
 # Products Page
 elif selected == "Products":

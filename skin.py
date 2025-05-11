@@ -26,9 +26,6 @@ SKIN_TEXTURE_LABELS = [
     "Peeling", "Tight", "Scaly"
 ]
 
-# Add makeup-specific undertone detection
-SKIN_UNDERTONE_LABELS = ["Cool", "Neutral", "Warm"]
-
 # Load Pre-trained Model (Modified for Multi-Output)
 # Initialize model variable globally
 model = None  
@@ -46,37 +43,30 @@ def load_model():
 
         # Add Global Pooling Layer
         x = tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
-        
-        # Add a dense layer for better feature extraction for makeup recommendations
-        x = tf.keras.layers.Dense(512, activation='relu')(x)
-        x = tf.keras.layers.Dropout(0.3)(x)
 
         # Define Outputs
         skin_tone_output = tf.keras.layers.Dense(len(SKIN_TONE_LABELS), activation='softmax', name="skin_tone")(x)
         skin_type_output = tf.keras.layers.Dense(len(SKIN_TYPE_LABELS), activation='softmax', name="skin_type")(x)
         skin_concern_output = tf.keras.layers.Dense(len(SKIN_CONCERN_LABELS), activation='softmax', name="skin_concern")(x)
         skin_texture_output = tf.keras.layers.Dense(len(SKIN_TEXTURE_LABELS), activation='softmax', name="skin_texture")(x)
-        skin_undertone_output = tf.keras.layers.Dense(len(SKIN_UNDERTONE_LABELS), activation='softmax', name="skin_undertone")(x)
 
         # Build Model with Multiple Outputs
-        model = tf.keras.Model(inputs=base_model.input, 
-                              outputs=[skin_tone_output, skin_type_output, skin_concern_output, 
-                                      skin_texture_output, skin_undertone_output])
+        model = tf.keras.Model(inputs=base_model.input, outputs=[skin_tone_output, skin_type_output, skin_concern_output, skin_texture_output])
 
     return model  # Always return the same instance
-
 # Load the model once to avoid reloading issues
 model = load_model()
 
+# Skin Analysis Function
 def analyze_skin(image_path, force_refresh=False):
-    """Analyzes skin tone, type, texture, concerns, and undertone from an image file.
+    """Analyzes skin tone, type, texture, and concerns from an image file.
 
     Args:
         image_path (str): Path to the image file.
         force_refresh (bool): If True, reloads the model for fresh analysis.
 
     Returns:
-        tuple: (skin_tone, skin_type, skin_concern, skin_texture, skin_undertone)
+        tuple: (skin_tone, skin_type, skin_concern, skin_texture)
     """
     global model  # Ensure we use the loaded model
 
@@ -109,18 +99,11 @@ def analyze_skin(image_path, force_refresh=False):
         skin_type = SKIN_TYPE_LABELS[np.argmax(predictions[1])]
         skin_concern = SKIN_CONCERN_LABELS[np.argmax(predictions[2])]
         skin_texture = SKIN_TEXTURE_LABELS[np.argmax(predictions[3])]
-        
-        # For backward compatibility, provide a default undertone if the model doesn't have it yet
-        if len(predictions) >= 5:
-            skin_undertone = SKIN_UNDERTONE_LABELS[np.argmax(predictions[4])]
-        else:
-            # Default to neutral if undertone prediction is not available
-            skin_undertone = "Neutral"
 
         # Debugging: Print selected results
-        print(f"DEBUG: Analysis Results -> Tone: {skin_tone}, Type: {skin_type}, Concern: {skin_concern}, Texture: {skin_texture}, Undertone: {skin_undertone}")
+        print(f"DEBUG: Analysis Results -> Tone: {skin_tone}, Type: {skin_type}, Concern: {skin_concern}, Texture: {skin_texture}")
 
-        return skin_tone, skin_type, skin_concern, skin_texture, skin_undertone
+        return skin_tone, skin_type, skin_concern, skin_texture
 
     except Exception as e:
         raise ValueError(f"ERROR: Skin analysis failed: {e}")
