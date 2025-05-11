@@ -1,0 +1,17 @@
+CREATE TABLE `products` (
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `category` varchar(255) NOT NULL,
+  `skin_tone` varchar(255) NOT NULL,
+  `skin_texture` varchar(255) NOT NULL,
+  `skin_concern` text NOT NULL,
+  `skin_type` varchar(255) NOT NULL,
+  `link` text NOT NULL,
+  `image_path` text NOT NULL,
+  `recommendation` text NOT NULL,
+  `subcategory` varchar(50) DEFAULT NULL,
+  `undertone` varchar(20) DEFAULT NULL,
+  `shade` varchar(50) DEFAULT NULL,
+  `finish` varchar(50) DEFAULT NULL,
+  `makeup_recommendation` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
