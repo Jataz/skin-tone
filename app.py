@@ -799,9 +799,9 @@ elif selected == "About":
         <div class="card">
             <h3 style="color: #1e88e5; margin-top: 0;">Contact Us</h3>
             <p>Have questions or feedback? We'd love to hear from you!</p>
-            <p><strong>Email:</strong> contact@Skin Tone Analysis.com</p>
-            <p><strong>Phone:</strong> +1 (415) 555-0123</p>
-            <p><strong>Address:</strong> 123 AI Avenue, San Francisco, CA 94105</p>
+            <p><strong>Email:</strong> contact@skin.com</p>
+            <p><strong>Phone:</strong> +263 78 637 7045</p>
+            <p><strong>Address:</strong> 123 AI Avenue, Pumula,  94105</p>
         </div>
     """, unsafe_allow_html=True)
 
