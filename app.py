@@ -4,7 +4,7 @@ import os
 import cv2
 import numpy as np
 from models.skin_analysis import analyze_skin
-from models.recommender import recommend_products, init_db_connection, close_db_connection, fetch_gallery_products
+from models.recommender import recommend_skincare, recommend_makeup, recommend_products, init_db_connection, close_db_connection, fetch_gallery_products, fetch_product_details
 
 # Configure Streamlit page
 st.set_page_config(
@@ -297,7 +297,7 @@ with st.sidebar:
 
     selected = option_menu(
         menu_title=None,
-        options=["Home", "Analyze", "Products", "Research", "About"],
+        options=["Home", "Analyze", "Research", "About"],
         icons=["house", "camera", "bag", "journal", "info-circle"],
         default_index=0,
         styles={
@@ -567,7 +567,8 @@ elif selected == "Analyze":
                         </div>
                     """, unsafe_allow_html=True)
 
-                    skincare_products = recommend_products(skin_tone, skin_type, skin_concern, skin_texture, category="Skincare")
+                    # Use the specialized skincare recommendation function
+                    skincare_products = recommend_skincare(skin_tone, skin_type, skin_concern, skin_texture)
                     
                     if skincare_products:
                         for i in range(0, len(skincare_products), 3):
@@ -582,7 +583,7 @@ elif selected == "Analyze":
                                                 <p><strong>Type:</strong> {product['skin_type']}</p>
                                                 <p><strong>Concern:</strong> {product['skin_concern']}</p>
                                                 <p><strong>Recommendation:</strong> {product.get('recommendation', 'Perfect for your skin profile')}</p>
-                                                <a href="{product['link']}" target="_blank">
+                                                <a href="{product.get('link', '#')}" target="_blank">
                                                     <img src="{product.get('image_path', 'static/images/placeholder.png')}" style="width: 100%; margin-top: 10px;">
                                                 </a>
                                             </div>
@@ -599,8 +600,8 @@ elif selected == "Analyze":
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # Get makeup recommendations
-                    makeup_products = recommend_products(skin_tone, skin_type, skin_concern, skin_texture, category="Makeup", undertone=skin_undertone)
+                    # Use the specialized makeup recommendation function with undertone
+                    makeup_products = recommend_makeup(skin_tone, skin_type, skin_concern, skin_texture, skin_undertone)
                     
                     if makeup_products:
                         # Create sections for different makeup categories
@@ -641,8 +642,9 @@ elif selected == "Analyze":
                                                         <h4 style="color: #4e95ed; font-size: 18px;">{product['name']}</h4>
                                                         <p><strong>Shade:</strong> {product.get('shade', 'Best match for your tone')}</p>
                                                         <p><strong>Finish:</strong> {product.get('finish', 'Natural')}</p>
+                                                        <p><strong>Undertone:</strong> {product.get('undertone', skin_undertone)}</p>
                                                         <p><strong>Recommendation:</strong> {product.get('makeup_recommendation', 'Perfect for your skin profile')}</p>
-                                                        <a href="{product['link']}" target="_blank">
+                                                        <a href="{product.get('link', '#')}" target="_blank">
                                                             <img src="{product.get('image_path', 'static/images/placeholder.png')}" style="width: 100%; margin-top: 10px;">
                                                         </a>
                                                     </div>
@@ -713,89 +715,6 @@ elif selected == "Analyze":
                 st.info("Please try uploading a different image with clearer lighting and a more visible face.")
 
 # Products Page
-elif selected == "Products":
-    st.markdown("""
-        <h1 style='margin-bottom: 20px;'>Product Catalog</h1>
-        <p style='margin-bottom: 30px;'>Explore our curated collection of premium skincare products.</p>
-    """, unsafe_allow_html=True)
-
-    # Tabs for Product Categories
-    tab1, tab2, tab3, tab4 = st.tabs(["All Products", "Cleansers", "Moisturizers", "Treatments"])
-    
-    products = fetch_gallery_products()
-    
-    with tab1:
-        if products:
-            cols = st.columns(3)
-            for i, product in enumerate(products):
-                product_name, category, image_path, product_link = product
-
-                if not os.path.exists(image_path) or not image_path:
-                    image_path = "static/images/default_product.png"
-
-                with cols[i % 3]:
-                    st.markdown(f"""
-                        <div class="feature-card animated" style="animation-delay: {0.1 + i * 0.05}s;">
-                            <div style="text-align: center;">
-                                <div class="image-container" style="margin-bottom: 15px;">
-                                    <img src="{image_path}" style="width: 100%; height: 200px; object-fit: cover;">
-                                </div>
-                                <h4 style="margin: 10px 0 5px 0;">{product_name}</h4>
-                                <span class="badge">{category}</span>
-                                <button style="background-color: #4e95ed; color: white; border: none; border-radius: 20px; padding: 8px 16px; margin-top: 15px; cursor: pointer; transition: all 0.3s ease;">View Details</button>
-                            </div>
-                        </div>
-                    """, unsafe_allow_html=True)
-        else:
-            st.warning("No products found in the database.")
-            
-    with tab2:
-        st.markdown("""
-            <div class="card animated">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                    <h3 style="color: #4e95ed; margin: 0;">Cleansers</h3>
-                    <div>
-                        <span class="badge" style="cursor: pointer;">All Types</span>
-                        <span class="badge" style="cursor: pointer;">Oily Skin</span>
-                        <span class="badge" style="cursor: pointer;">Dry Skin</span>
-                        <span class="badge" style="cursor: pointer;">Sensitive</span>
-                    </div>
-                </div>
-                <p>Cleansers category selected. Choose a filter to narrow down options.</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with tab3:
-        st.markdown("""
-            <div class="card animated">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                    <h3 style="color: #4e95ed; margin: 0;">Moisturizers</h3>
-                    <div>
-                        <span class="badge" style="cursor: pointer;">All Types</span>
-                        <span class="badge" style="cursor: pointer;">Lightweight</span>
-                        <span class="badge" style="cursor: pointer;">Rich</span>
-                        <span class="badge" style="cursor: pointer;">With SPF</span>
-                    </div>
-                </div>
-                <p>Moisturizers category selected. Choose a filter to narrow down options.</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with tab4:
-        st.markdown("""
-            <div class="card animated">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                    <h3 style="color: #4e95ed; margin: 0;">Treatments</h3>
-                    <div>
-                        <span class="badge" style="cursor: pointer;">All Types</span>
-                        <span class="badge" style="cursor: pointer;">Acne</span>
-                        <span class="badge" style="cursor: pointer;">Anti-aging</span>
-                        <span class="badge" style="cursor: pointer;">Brightening</span>
-                    </div>
-                </div>
-                <p>Treatments category selected. Choose a filter to narrow down options.</p>
-            </div>
-        """, unsafe_allow_html=True)
 
 # Research Page
 elif selected == "Research":

@@ -20,20 +20,111 @@ def init_db_connection():
             print(f"DEBUG: Error connecting to the database: {e}")
             connection = None
 
-def recommend_products(skin_tone, skin_type, skin_concern, skin_texture, category=None, undertone=None):  # Added undertone parameter
+def recommend_skincare(skin_tone, skin_type, skin_concern, skin_texture):
+    """Recommend skincare products based on skin attributes."""
+    try:
+        if connection is None:
+            init_db_connection()
+
+        cursor = connection.cursor(pymysql.cursors.DictCursor)
+
+        # Debugging: Print received parameters
+        print(f"DEBUG: Searching for skincare with - Tone: {skin_tone}, Type: {skin_type}, Concern: {skin_concern}, Texture: {skin_texture}")
+
+        # Skincare-specific query
+        query = """
+        SELECT name, category, recommendation, subcategory,
+               skin_tone, skin_type, skin_concern, skin_texture
+        FROM products
+        WHERE LOWER(skin_tone) LIKE LOWER(%s)
+        AND LOWER(skin_type) LIKE LOWER(%s)
+        AND LOWER(skin_concern) LIKE LOWER(%s)
+        AND LOWER(skin_texture) LIKE LOWER(%s)
+        AND LOWER(category) = 'skincare'
+        """
+        
+        params = [f"%{skin_tone}%", f"%{skin_type}%", f"%{skin_concern}%", f"%{skin_texture}%"]
+            
+        # Debug: Print SQL query
+        print(f"DEBUG: Running Skincare Query -> {query}")
+
+        cursor.execute(query, params)
+        products = cursor.fetchall()
+
+        # Debugging: Print SQL results
+        print(f"DEBUG: Skincare results: {products}")
+
+        cursor.close()
+        return products
+
+    except pymysql.MySQLError as e:
+        print(f"DEBUG: Database error: {e}")
+        return []
+
+def recommend_makeup(skin_tone, skin_type, skin_concern, skin_texture, undertone):
+    """Recommend makeup products based on skin attributes and undertone."""
+    try:
+        if connection is None:
+            init_db_connection()
+
+        cursor = connection.cursor(pymysql.cursors.DictCursor)
+
+        # Debugging: Print received parameters
+        print(f"DEBUG: Searching for makeup with - Tone: {skin_tone}, Type: {skin_type}, Concern: {skin_concern}, Texture: {skin_texture}, Undertone: {undertone}")
+
+        # Makeup-specific query
+        query = """
+        SELECT name, category, makeup_recommendation, subcategory,
+               skin_tone, skin_type, skin_concern, skin_texture, 
+               undertone, shade, finish
+        FROM products
+        WHERE LOWER(skin_tone) LIKE LOWER(%s)
+        AND LOWER(skin_type) LIKE LOWER(%s)
+        AND LOWER(skin_concern) LIKE LOWER(%s)
+        AND LOWER(skin_texture) LIKE LOWER(%s)
+        AND LOWER(category) = 'makeup'
+        """
+        
+        params = [f"%{skin_tone}%", f"%{skin_type}%", f"%{skin_concern}%", f"%{skin_texture}%"]
+        
+        # Add undertone filter if provided
+        if undertone:
+            query += "AND LOWER(undertone) LIKE LOWER(%s) "
+            params.append(f"%{undertone}%")
+            
+        # Debug: Print SQL query
+        print(f"DEBUG: Running Makeup Query -> {query}")
+
+        cursor.execute(query, params)
+        products = cursor.fetchall()
+
+        # Debugging: Print SQL results
+        print(f"DEBUG: Makeup results: {products}")
+
+        cursor.close()
+        return products
+
+    except pymysql.MySQLError as e:
+        print(f"DEBUG: Database error: {e}")
+        return []
+
+# Keep the original function for backward compatibility
+def recommend_products(skin_tone, skin_type, skin_concern, skin_texture, category=None, undertone=None):
     """Recommend products based on multiple skin attributes."""
     try:
         if connection is None:
             init_db_connection()
 
-        cursor = connection.cursor()
+        cursor = connection.cursor(pymysql.cursors.DictCursor)  # Use DictCursor to return results as dictionaries
 
         # Debugging: Print received parameters
         print(f"DEBUG: Searching for products with - Tone: {skin_tone}, Type: {skin_type}, Concern: {skin_concern}, Texture: {skin_texture}, Category: {category}, Undertone: {undertone}")
 
-        # Base query
+        # Base query - Include all skin attributes in the SELECT statement
         query = """
-        SELECT name, category, recommendation, makeup_recommendation, subcategory FROM products
+        SELECT name, category, recommendation, makeup_recommendation, subcategory,
+               skin_tone, skin_type, skin_concern, skin_texture, undertone, shade, finish
+        FROM products
         WHERE LOWER(skin_tone) LIKE LOWER(%s)
         AND LOWER(skin_type) LIKE LOWER(%s)
         AND LOWER(skin_concern) LIKE LOWER(%s)
@@ -73,7 +164,7 @@ def fetch_product_details(product_name):
         if connection is None:
             init_db_connection()
 
-        cursor = connection.cursor()
+        cursor = connection.cursor(pymysql.cursors.DictCursor)  # Use DictCursor
 
         # SQL query to fetch product details
         query = """
@@ -99,7 +190,7 @@ def fetch_gallery_products(limit=20):
         if connection is None:
             init_db_connection()
 
-        cursor = connection.cursor()
+        cursor = connection.cursor(pymysql.cursors.DictCursor)  # Use DictCursor
 
         # SQL query to fetch product name, category, image path, and link
         query = """

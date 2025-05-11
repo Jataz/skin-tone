@@ -97,17 +97,16 @@ try:
     print("🔄 Inserting skincare products...")
     skincare_count = 0
     
-    # Insert ALL skincare combinations
-    for skin_tone, skin_type, skin_concern in product(
-        SKIN_TONE_LABELS, SKIN_TYPE_LABELS, SKIN_CONCERN_LABELS
+    # Insert ALL skincare combinations with ALL textures
+    for skin_tone, skin_type, skin_concern, skin_texture in product(
+        SKIN_TONE_LABELS, SKIN_TYPE_LABELS, SKIN_CONCERN_LABELS, SKIN_TEXTURE_LABELS
     ):
-        product_name = f"{skin_concern} Treatment for {skin_tone} Skin"
+        product_name = f"{skin_concern} Treatment for {skin_tone} Skin ({skin_texture})"
         category = "Skincare"
         subcategory = None
         undertone = None
         shade = None
         finish = None
-        skin_texture = random.choice(SKIN_TEXTURE_LABELS)
         link = f"http://localhost:3232/view_product?name={product_name.replace(' ', '_').lower()}"
         
         # Use the original recommendation function for skincare products
@@ -126,8 +125,8 @@ try:
         ))
         skincare_count += 1
         
-        # Print progress every 50 items
-        if skincare_count % 50 == 0:
+        # Print progress every 500 items
+        if skincare_count % 500 == 0:
             print(f"  Progress: {skincare_count} skincare products inserted...")
 
     print(f"✅ {skincare_count} skincare products inserted.")
@@ -136,13 +135,10 @@ try:
     print("🔄 Inserting makeup products...")
     makeup_count = 0
     
-    # Calculate how many makeup products we need to match the total
-    target_makeup_count = 1125
-    
-    # Insert makeup combinations with a focus on creating exactly 1125 products
-    for subcategory, finish, undertone, skin_tone, skin_type, skin_concern in product(
+    # Insert ALL makeup combinations with ALL possible attributes
+    for subcategory, finish, undertone, skin_tone, skin_type, skin_concern, skin_texture in product(
         MAKEUP_SUBCATEGORIES, FINISHES, UNDERTONES, SKIN_TONE_LABELS, SKIN_TYPE_LABELS, 
-        random.sample(SKIN_CONCERN_LABELS, 5)  # Use a subset of concerns to control the total count
+        SKIN_CONCERN_LABELS, SKIN_TEXTURE_LABELS
     ):
         # Select appropriate shade based on skin tone
         if skin_tone == "Fair":
@@ -152,16 +148,14 @@ try:
         else:  # Dark
             shade = random.choice(["Mocha", "Espresso", "Deep"])
             
-        product_name = f"{subcategory} - {shade} - {finish}"
+        product_name = f"{subcategory} - {shade} - {finish} ({skin_texture})"
         category = "Makeup"
-        skin_texture = random.choice(SKIN_TEXTURE_LABELS)
         link = f"http://localhost:3232/view_product?name={product_name.replace(' ', '_').lower()}"
         
         # Generate makeup-specific recommendation
         makeup_recommendation = generate_makeup_recommendation(skin_tone, skin_type, skin_concern, undertone, subcategory)
         
         # For makeup products, use a generic skincare recommendation based on skin type and concern
-        # This ensures the recommendation column is never NULL while keeping it different from makeup_recommendation
         recommendation = f"For {skin_type.lower()} skin with {skin_concern.lower()}, consider skincare that complements your makeup routine."
         
         query = """
@@ -176,13 +170,9 @@ try:
         ))
         makeup_count += 1
         
-        # Print progress every 50 items
-        if makeup_count % 50 == 0:
+        # Print progress every 5000 items
+        if makeup_count % 5000 == 0:
             print(f"  Progress: {makeup_count} makeup products inserted...")
-            
-        # Stop once we reach the target count
-        if makeup_count >= target_makeup_count:
-            break
 
     connection.commit()
     print(f"✅ {makeup_count} makeup products inserted.")
