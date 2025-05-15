@@ -452,10 +452,34 @@ elif selected == "Analyze":
         </div>
     """, unsafe_allow_html=True)
 
+    # Near line 450, in the Analyze Page section
     # Upload Image
-    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
-
-    if uploaded_file is not None:
+    # Create a unique key for the file uploader based on session state counter
+    if 'image_counter' not in st.session_state:
+        st.session_state.image_counter = 0
+    if 'previous_image' not in st.session_state:
+        st.session_state.previous_image = None
+    if 'model_state_id' not in st.session_state:
+        st.session_state.model_state_id = 0
+        
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"], 
+                                    label_visibility="collapsed", 
+                                    key=f"uploader_{st.session_state.image_counter}")
+    
+    # Check if a new image was uploaded
+    if uploaded_file is not None and (st.session_state.previous_image != uploaded_file.name):
+        # Clear previous analysis results from session state
+        if 'skin_analysis_results' in st.session_state:
+            del st.session_state.skin_analysis_results
+        
+        # Increment model state ID to force model reload
+        st.session_state.model_state_id += 1
+        
+        # Update the previous image and increment counter
+        st.session_state.previous_image = uploaded_file.name
+        st.session_state.image_counter += 1
+        
+        # Save the uploaded file
         file_path = os.path.join(UPLOAD_FOLDER, uploaded_file.name)
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
@@ -497,16 +521,21 @@ elif selected == "Analyze":
 
             try:
                 with st.spinner("Analyzing your skin..."):
-                    # Update to handle the new undertone parameter
+                    # Always force a refresh for new images
                     try:
-                        skin_tone, skin_type, skin_concern, skin_texture, skin_undertone = analyze_skin(cropped_face_path, force_refresh=True)
+                        # Store results in session state
+                        results = analyze_skin(cropped_face_path, force_refresh=True)
+                        st.session_state.skin_analysis_results = results
+                        skin_tone, skin_type, skin_concern, skin_texture, skin_undertone = results
                     except ValueError as e:
                         # Fallback for backward compatibility if the model doesn't return undertone yet
-                        skin_tone, skin_type, skin_concern, skin_texture = analyze_skin(cropped_face_path, force_refresh=True)
+                        results = analyze_skin(cropped_face_path, force_refresh=True)
+                        st.session_state.skin_analysis_results = results
+                        skin_tone, skin_type, skin_concern, skin_texture = results
                         skin_undertone = "Neutral"  # Default value
                     
                     st.success("Analysis completed!")
-
+                    
                 # Display Results
                 col1, col2 = st.columns(2)
                 with col1:
